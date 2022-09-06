@@ -13,9 +13,17 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        primarySwatch: Colors.grey,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: Scaffold(
+          appBar: AppBar(
+            title: Center(
+              child: Text("TIG333 TODO-list"),
+            ),
+          ),
+          body: Center(
+            child: Text("Här kommer en lista"),
+          )),
     );
   }
 }
