@@ -1,10 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
+//##############################################################################
+//############################ Main / MyApp ####################################
+//##############################################################################
 void main() {
-  runApp(MyApp());
+  var state = MyState();
+
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => state,
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key);
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -13,164 +27,150 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.grey,
       ),
-      home: MainView(),
+      home: const mainView(),
     );
   }
 }
 
-//###################################################################################################
-//########################################## MainView ###############################################
-//###################################################################################################
-class MainView extends StatefulWidget {
-  @override
-  State<MainView> createState() => _MainViewState();
-}
+//##############################################################################
+//############################## mainView ######################################
+//##############################################################################
 
-class _MainViewState extends State<MainView> {
-  final List<String> todos = <String>["Exempeluppgift 1", "Exemppeluppgift 2"];
-  final List<bool> isChecked = <bool>[false, false];
-  var filterby =
-      ""; //Hänger ihop med kommande filterfunktion. Används ej just nu.
-
+class mainView extends StatelessWidget {
+  const mainView({Key? key}) : super(key: key);
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-          centerTitle: true,
-          title: const Text("TIG 333 TODO"),
-          actions: [
-//############################################################################## Meny för filtrering start
-            PopupMenuButton(
-                onSelected: (value) {
-                  //Behöver uppdateras med funktion / Skapa ny lista baserat på isChecked bool-värde. Används ej.
-                  setState(() {
-                    if (value = true) {}
-                    if (value = false) {
-                    } else {}
-                  });
-                },
-                itemBuilder: (context) => [
-                      PopupMenuItem(child: Text("View All"), value: bool),
-                      PopupMenuItem(child: Text("View Done"), value: true),
-                      PopupMenuItem(child: Text("View Undone"), value: false),
-                    ])
-//############################################################################## Meny för filtrering slut
-          ]),
-      body: todoList(),
-//############################################################################## FloatingActionButton start
+        centerTitle: true,
+        title: const Text("TIG 333 TODO"),
+        actions: [
+          Consumer<MyState>(
+            builder: (context, state, child) => Row(
+              children: [
+                Text(
+                  state.filterBy,
+                  style: const TextStyle(fontSize: 18),
+                ),
+//########################### Many för filtrering start ########################
+                PopupMenuButton(
+                  onSelected: (value) =>
+                      Provider.of<MyState>(context, listen: false)
+                          .setFilterBy(value as String),
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(value: 'All', child: Text("All")),
+                    const PopupMenuItem(value: 'Done', child: Text("Done")),
+                    const PopupMenuItem(value: 'Undone', child: Text("Undone")),
+                  ],
+                )
+//########################## Many för filtrering slut ##########################
+              ],
+            ),
+          )
+        ],
+      ),
+      body: Consumer<MyState>(builder: (context, state, child) {
+        return todoList(filterList(state.list, state.filterBy));
+      }),
+//##########################  FloatingActionButton start #######################
       floatingActionButton: FloatingActionButton(
+        child: const Icon(Icons.add),
         onPressed: () async {
-          final String recievedText = await Navigator.push(
-              context, MaterialPageRoute(builder: (context) => secondView()));
-          if (recievedText != null) {
-            setState(() {
-              todos.add(recievedText);
-              isChecked.add(false);
-            });
+          var newItem = await Navigator.push(context,
+              MaterialPageRoute(builder: (context) => const secondView()));
+          if (newItem != null && newItem.task != "") {
+            Provider.of<MyState>(context, listen: false).addTodo(newItem);
           }
         },
-        child: const Icon(Icons.add),
       ),
-//############################################################################## FloatingActionButton slut
+//########################### FloatingActionButton slut ########################
+    );
+  }
+}
+
+//########################### Meny för filtrering IF-sats start ################
+List<todoItem> filterList(list, filterBy) {
+  if (filterBy == 'All') {
+    return list;
+  }
+  if (filterBy == 'Done') {
+    return list.where((item) => item.isChecked == true).toList();
+  }
+  if (filterBy == 'Undone') {
+    return list.where((item) => item.isChecked == false).toList();
+  }
+  return list;
+}
+
+//######################### Meny för filtrering IF-sats slut ###################
+//######################### todoList start #####################################
+class todoList extends StatelessWidget {
+  final List<todoItem> list;
+  todoList(this.list);
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.only(
+        top: 20,
+        bottom: kFloatingActionButtonMargin + 55,
+      ),
+      children: list.map((item) => todoListTile(context, item)).toList(),
     );
   }
 
-//############################################################################## Todolist start
-  Widget todoList() {
+  //####################### todoList slut ######################################
+  //####################### todoListTile start ##################################
+  Widget todoListTile(context, item) {
     return Column(
       children: [
-        Expanded(
-          child: ListView.builder(
-            itemCount: todos.length,
-            itemBuilder: (context, int index) {
-              return todoContainer(index);
+        ListTile(
+          leading: Checkbox(
+            value: item.isChecked,
+            onChanged: (value) {
+              Provider.of<MyState>(context, listen: false).setIsDone(item);
+            },
+          ),
+          title: Text(
+            item.task,
+            style: item.isChecked
+                ? const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    decoration: TextDecoration.lineThrough,
+                    color: Colors.black)
+                : const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+          ),
+          trailing: IconButton(
+            icon: const Icon(Icons.clear, size: 30),
+            onPressed: () {
+              Provider.of<MyState>(context, listen: false).deleteEntry(item);
             },
           ),
         ),
-        const SizedBox(height: 50)
+        const Divider(height: 20, thickness: 1),
       ],
     );
   }
+}
 
-//############################################################################## Todolist slut
-//############################################################################## Todo/container & tillhörande widgets start
-  Widget todoContainer(int index) {
-    return Container(
-      padding: const EdgeInsets.all(5.0),
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Colors.grey),
-        ),
-      ),
-      child: Row(
-        children: [
-          todoCheckbox(index),
-          todoText(index),
-          todoDelete(index),
-        ],
-      ),
-    );
-  }
+//##############################################################################
+//########################## secondView ########################################
+//##############################################################################
+class secondView extends StatefulWidget {
+  const secondView({super.key});
 
-  Widget todoCheckbox(int index) {
-    return Checkbox(
-      value: isChecked[index],
-      onChanged: (bool? newValue) {
-        setState(
-          () {
-            isChecked[index] = newValue!;
-          },
-        );
-      },
-    );
-  }
-
-  Widget todoText(int index) {
-    return Expanded(
-      child: Text(
-        todos[index],
-        style: isChecked[index]
-            ? const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                decoration: TextDecoration.lineThrough,
-                color: Colors.black)
-            : const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-        overflow: TextOverflow.ellipsis,
-      ),
-    );
-  }
-
-  Widget todoDelete(int index) {
-    return IconButton(
-      icon: const Icon(
-        Icons.clear,
-        size: 30,
-      ),
-      onPressed: () {
-        deleteEntry(todos, index);
-      },
-    );
-  }
-
-  void deleteEntry(List entryList, int index) {
-    setState(() {
-      entryList.removeAt(index);
-      isChecked.removeAt(index);
-    });
+  @override
+  State<secondView> createState() {
+    return secondViewState();
   }
 }
-//############################################################################## Todo/container & tillhörande widgets slut
 
-//#########################################################################################################
-//######################################## SecondView #####################################################
-//#########################################################################################################
-class secondView extends StatelessWidget {
-  secondView({super.key});
-  String textInput = "";
+class secondViewState extends State<secondView> {
+  final myController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -181,40 +181,122 @@ class secondView extends StatelessWidget {
       ),
       body: Column(
         children: [
-          Container(height: 45),
-          //#################################################################### Textfield input start
-          TextField(
-            onChanged: (text) {
-              textInput = text;
-            },
-            decoration: const InputDecoration(
-              enabledBorder:
-                  OutlineInputBorder(borderSide: BorderSide(width: 2)),
-              contentPadding: EdgeInsets.all(10.0),
-              hintText: 'What are you going to do?',
-            ),
-          ),
-          //#################################################################### Textfield slut
+          todoInputField(),
           Container(height: 30),
-          //#################################################################### "+Add"-knapp start
-          //#################################################################### (Går också tillbaka till mainView
-          //####################################################################  med Navigator.pop)
-          OutlinedButton(
-              onPressed: () {
-                Navigator.pop(context, textInput);
-              },
-              style: OutlinedButton.styleFrom(
-                  side: const BorderSide(width: 2, color: Colors.black)),
-              child: const Text(
-                "+ Add",
-                style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black),
-              ))
-          //#################################################################### "+Add"-knapp slut
+          addButton(),
         ],
       ),
     );
   }
+
+//############################ todoInputField start ###########################
+  Widget todoInputField() {
+    return Container(
+      margin: const EdgeInsets.only(left: 30, right: 30, top: 45),
+      child: TextField(
+        controller: myController,
+        decoration: const InputDecoration(
+          enabledBorder: OutlineInputBorder(borderSide: BorderSide(width: 2)),
+          labelText: "Enter a task or go back to start page.",
+          labelStyle: TextStyle(fontSize: 18),
+        ),
+      ),
+    );
+  }
+
+//############################# todoInputField slut ###########################
+//############################### addButton start #############################
+  Widget addButton() {
+    return Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+      OutlinedButton(
+          onPressed: () {
+            //if/else för att hantera tomma inputs (funkar inte helt 100%)
+            if (myController.text == "") {
+            } else {
+              Navigator.pop(context,
+                  todoItem(task: myController.text, id: "", isChecked: false));
+            }
+          },
+          style: OutlinedButton.styleFrom(
+              side: const BorderSide(width: 2, color: Colors.black)),
+          child: const Text(
+            "+ ADD",
+            style: TextStyle(
+                fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
+          )),
+    ]);
+  }
+//############################ addButton slut #################################
 }
+
+//####################### todoItem & ChangeNotifier/notifyListeners start ######
+class todoItem {
+  String task;
+  String id;
+  bool isChecked;
+
+  todoItem({required this.task, required this.id, required this.isChecked});
+}
+
+class MyState extends ChangeNotifier {
+  List<todoItem> _list = [];
+  String _filterBy = 'All';
+
+  String homepage = "https://todoapp-api.apps.k8s.gu.se/todos";
+  String key = "?key=98d2bffd-2760-4606-9bda-49a089d2ea45";
+
+  List<todoItem> get list => _list;
+  String get filterBy => _filterBy;
+
+  MyState() {
+    getApiList();
+  }
+
+  void getApiList() async {
+    http.Response answer = await http.get(Uri.parse('$homepage$key'));
+    List itemlist = jsonDecode(answer.body);
+    apiList(itemlist);
+  }
+
+  void apiList(itemlist) {
+    _list.clear();
+    itemlist.forEach((object) {
+      _list.add(todoItem(
+          task: object["title"], isChecked: object["done"], id: object["id"]));
+    });
+    notifyListeners();
+  }
+
+  void addTodo(todoItem item) async {
+    http.Response answer = await http.post(Uri.parse('$homepage$key'),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"title": item.task, "done": item.isChecked}));
+    List itemlist = jsonDecode(answer.body);
+    apiList(itemlist);
+    notifyListeners();
+  }
+
+  void deleteEntry(todoItem item) async {
+    String id = item.id;
+    http.Response answer = await http.delete(Uri.parse('$homepage/$id$key'));
+    List itemlist = jsonDecode(answer.body);
+    apiList(itemlist);
+    notifyListeners();
+  }
+
+  void setIsDone(todoItem item) async {
+    String id = item.id;
+    http.Response answer = await http.put(Uri.parse('$homepage/$id$key'));
+    List itemlist = jsonDecode(answer.body);
+    item.isChecked = !item.isChecked;
+    notifyListeners();
+  }
+
+  void setFilterBy(String filterBy) {
+    this._filterBy = filterBy;
+    notifyListeners();
+  }
+}
+//########### todoItem & ChangeNotifier/notifyListeners slut ###################
+
+
