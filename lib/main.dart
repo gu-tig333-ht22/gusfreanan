@@ -210,12 +210,8 @@ class secondViewState extends State<secondView> {
     return Row(mainAxisAlignment: MainAxisAlignment.center, children: [
       OutlinedButton(
           onPressed: () {
-            //if/else för att hantera tomma inputs (funkar inte helt 100%)
-            if (myController.text == "") {
-            } else {
-              Navigator.pop(context,
-                  todoItem(task: myController.text, id: "", isChecked: false));
-            }
+            Navigator.pop(context,
+                todoItem(task: myController.text, id: "", isChecked: false));
           },
           style: OutlinedButton.styleFrom(
               side: const BorderSide(width: 2, color: Colors.black)),
@@ -243,7 +239,7 @@ class MyState extends ChangeNotifier {
   String _filterBy = 'All';
 
   String homepage = "https://todoapp-api.apps.k8s.gu.se/todos";
-  String key = "?key=98d2bffd-2760-4606-9bda-49a089d2ea45";
+  String key = "?key=a0017e4a-5008-42fb-9f72-3258d07304bb";
 
   List<todoItem> get list => _list;
   String get filterBy => _filterBy;
